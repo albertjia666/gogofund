@@ -1,4 +1,5 @@
 # encoding=utf-8
+import datetime
 import json
 import random
 import time
@@ -9,6 +10,10 @@ from lxml import etree
 import re
 import collections
 import math
+from fund_rank import fund_code_name
+from fund_logger import Log
+
+log = Log(file_name=None, log_name='fund.log').init_logger()
 
 
 def get_fundcode():
@@ -19,6 +24,14 @@ def get_fundcode():
     fundcode = pd.DataFrame(fundcode_list, columns=['fund_code', 'fund_abbr', 'fund_name', 'fund_type', 'fund_pinyin'])
     fundcode = fundcode.loc[:, ['fund_code', 'fund_name', 'fund_type']]
     fundcode.to_csv('./fundcode.csv', index=False)
+
+
+def get_pzgs(fund_code):
+    """获取基金当日盘中估算的值"""
+    r = requests.get(url=f"http://fundf10.eastmoney.com/jjjz_{fund_code}.html")
+    html = etree.HTML(r.text)
+    pzgs = html.xpath("//span[@id='fund_gsz']/text()")[0]
+    return pzgs
 
 
 def get_one_page(fundcode, pageIndex=1):
@@ -76,8 +89,9 @@ def main(fundcode):
     info = parse_one_page(html)
     total_page = info['total_page']
     lsjz = info['lsjz']
-    lsjz.to_csv(f'./{fundcode}_lsjz.csv', index=False)
+    lsjz.to_csv(f'./{fundcode}_{datetime.datetime.now().strftime("%Y-%m-%d")}_lsjz.csv', index=False)
     page = 1
+    total_page = 2 # 自定义值
     while page < total_page:
         page += 1
         html = get_one_page(fundcode, pageIndex=page)
@@ -85,16 +99,27 @@ def main(fundcode):
         if info is None:
             break
         lsjz = info['lsjz']
-        lsjz.to_csv(f'./{fundcode}_lsjz.csv', mode='a', index=False, header=False)
-        time.sleep(random.randint(5, 10))
+        lsjz.to_csv(f'./{fundcode}_{datetime.datetime.now().strftime("%Y-%m-%d")}_lsjz.csv', mode='a', index=False, header=False)
+        time.sleep(random.randint(1, 5))
 
 
 if __name__ == '__main__':
 
-    get_fundcode()
-    fundcodes = {'fundcode': ['519961', ]}
-    # fundcodes = pd.read_csv('./fundcode.csv', converters={'fundcode': str})
+    # get_fundcode()
+    fund_codes_list = fund_code_name()
+    # fundcodes = {'fundcode': ['501057', '003986', '003095', '001631']}
+    fundcodes = {'fundcode': fund_codes_list}
     for fundcode in fundcodes['fundcode']:
-        print(fundcode)
+        log.info(f"基金代码: {fundcode}")
+        pzgs = get_pzgs(fundcode)
+        log.info(f"盘中估算: {pzgs}")
         main(fundcode)
-        time.sleep(random.randint(5, 10))
+        fundcodes = pd.read_csv(f'./{fundcode}_{datetime.datetime.now().strftime("%Y-%m-%d")}_lsjz.csv', converters={'fundcode': str})
+        for index, dwjz in enumerate(fundcodes.sort_values(by="DWJZ", ascending=True)['DWJZ']):
+            if float(pzgs) < float(dwjz):
+                jzpm = (int(index) - 1) / (40 - 1)
+                log.info(f"净值百分位排名: {jzpm}")
+                break
+            else:
+                continue
+        time.sleep(random.randint(1, 5))

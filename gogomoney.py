@@ -106,20 +106,47 @@ def main(fundcode):
 if __name__ == '__main__':
 
     # get_fundcode()
-    fund_codes_list = fund_code_name()
-    # fundcodes = {'fundcode': ['501057', '003986', '003095', '001631']}
-    fundcodes = {'fundcode': fund_codes_list}
-    for fundcode in fundcodes['fundcode']:
-        log.info(f"基金代码: {fundcode}")
+
+    fund_code_name()
+
+    time.sleep(random.randint(1, 5))
+
+    fund_codes = pd.read_csv(f'./{datetime.datetime.now().strftime("%Y-%m-%d")}_指数基金.csv')
+    for fund_index, row in fund_codes.iterrows():
+        fundcode = str(row['基金代码']).zfill(6)
         pzgs = get_pzgs(fundcode)
-        log.info(f"盘中估算: {pzgs}")
         main(fundcode)
         fundcodes = pd.read_csv(f'./{fundcode}_{datetime.datetime.now().strftime("%Y-%m-%d")}_lsjz.csv', converters={'fundcode': str})
         for index, dwjz in enumerate(fundcodes.sort_values(by="DWJZ", ascending=True)['DWJZ']):
             if float(pzgs) < float(dwjz):
-                jzpm = (int(index) - 1) / (40 - 1)
-                log.info(f"净值百分位排名: {jzpm}")
+                jzpm = (0 if (int(index) - 1) < 0 else (int(index) - 1)) / (40 - 1)
+                _jzpm = round(jzpm, 5)
+                if _jzpm == float(0.00000):
+                    log.critical(f"基金排名：{fund_index + 1}")
+                    log.critical(f"基金名称: {row['基金简称']}")
+                    log.critical(f"基金代码: {fundcode}")
+                    log.critical(f"盘中估算: {pzgs}")
+                    log.critical(f"净值百分位排名: -0.0")
+                elif _jzpm >= float(0.80000):
+                    log.warning(f"基金排名：{fund_index + 1}")
+                    log.warning(f"基金名称: {row['基金简称']}")
+                    log.warning(f"基金代码: {fundcode}")
+                    log.warning(f"盘中估算: {pzgs}")
+                    log.warning(f"净值百分位排名: {jzpm}")
+                elif float(0.00000) < _jzpm < float(0.80000):
+                    log.info(f"基金排名：{fund_index + 1}")
+                    log.info(f"基金名称: {row['基金简称']}")
+                    log.info(f"基金代码: {fundcode}")
+                    log.info(f"盘中估算: {pzgs}")
+                    log.info(f"净值百分位排名: {jzpm}")
                 break
             else:
                 continue
+        else:
+            log.error(f"基金排名：{fund_index + 1}")
+            log.error(f"基金名称: {row['基金简称']}")
+            log.error(f"基金代码: {fundcode}")
+            log.error(f"盘中估算: {pzgs}")
+            log.error(f"净值百分位排名: -0.0")
+
         time.sleep(random.randint(1, 5))

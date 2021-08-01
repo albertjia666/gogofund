@@ -1,4 +1,5 @@
 # encoding=utf-8
+import loggus
 import pandas as pd
 import requests
 from lxml import etree
@@ -7,6 +8,9 @@ import collections
 import json
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
+from fund_logger import Log
+
+log = Log(file_name=None, log_name='fund.log').init_logger()
 
 
 cookie = 'st_si=50042120533408; st_asi=delete; qgqp_b_id=75d7da532bb4bf938c20a91c4f8a1118; ' \
@@ -32,15 +36,18 @@ def fund_code_name():
 
     d = datetime.strptime(datetime.now().strftime("%Y-%m-%d"), "%Y-%m-%d")
     time_range = f"sd={str((d - relativedelta(years=1)).strftime('%Y-%m-%d'))}&ed={str(datetime.now().strftime('%Y-%m-%d'))}"
+    log.info(f"时间间隔 -> {str(time_range)}")
+
+    fund_count = 50
 
     response = requests.get(
-        url='http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=zs&rs=&gs=0&sc=3yzf&st=desc&%s&qdii=|&tabSubtype=,,,,,&pi=1&pn=50&dx=1&v=0.942965085964089' % time_range,
+        url=f"http://fund.eastmoney.com/data/rankhandler.aspx?op=ph&dt=kf&ft=zs&rs=&gs=0&sc=3yzf&st=desc&{time_range}&qdii=|&tabSubtype=,,,,,&pi=1&pn={fund_count}&dx=1&v=0.942965085964089",
         headers=header)
     text = response.text
     content = re.findall('\\[(.*?)]', text)[0]
     replace_quota = content.replace('"', "")
     quota_arrays = replace_quota.split(",")
-    intervals = [[i * 25, (i + 1) * 25] for i in range(50)]
+    intervals = [[i * 25, (i + 1) * 25] for i in range(fund_count)]
 
     narrays = []
     for k in intervals:
@@ -50,13 +57,12 @@ def fund_code_name():
               "单位净值", "累计净值", "日增长率", "近1周增长率", "近1月增长率", "近3月", "近半年", "近1年", "近2年", "近3年",
               "今年来", "成立来", "其他1", "其他2", "其他3", "其他4", "其他5", "其他6", "其他7", "其他8", "其他9"]
     df = pd.DataFrame(narrays, columns=header)
-
     df_part = df[["基金代码", "基金简称", "日期", "单位净值", "累计净值", "日增长率", "近1周增长率", "近1月增长率", "近3月", "近半年"]]
-    df_part.to_csv(f"{datetime.now().strftime('%Y-%m-%d')}_50强基金收益.csv", encoding="utf_8_sig")
+    df_part.to_csv(f"{datetime.now().strftime('%Y-%m-%d')}_指数基金.csv", encoding="utf_8_sig")
 
-    rank_fund_code = df_part.head(50)["基金代码"]
+    rank_fund_code = df_part.head(fund_count)["基金代码"]
     fund_codes_list = rank_fund_code.values.tolist()
-    print("前50指数型强基金: ", fund_codes_list)
+    log.info(f"前{fund_count}强指数型基金 -> {str(fund_codes_list)}")
     return fund_codes_list
 
 

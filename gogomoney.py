@@ -126,7 +126,7 @@ if __name__ == '__main__':
                     log.critical(f"基金名称: {row['基金简称']}")
                     log.critical(f"基金代码: {fundcode}")
                     log.critical(f"盘中估算: {pzgs}")
-                    log.critical(f"净值百分位排名: -0.0")
+                    log.critical(f"净值百分位排名: {jzpm}")
                 elif _jzpm >= float(0.80000):
                     log.warning(f"基金排名：{fund_index + 1}")
                     log.warning(f"基金名称: {row['基金简称']}")
